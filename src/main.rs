@@ -1,7 +1,16 @@
-mod customer;
-mod amount;
 mod account;
+mod amount;
+mod communicate;
+mod customer;
+mod teller;
+
+use communicate::*;
+use teller::*;
 
 fn main() {
-    println!("Hello, world!");
+    let communicate = IoCommunicate::new();
+
+    let teller = Teller {
+        communicate: &communicate,
+    };
 }
