@@ -1,5 +1,7 @@
+use super::amount::Amount;
 use super::communicate::Communicate;
 use super::customer::Customer;
+use std::str::FromStr;
 
 pub struct Teller<'a> {
     pub communicate: &'a dyn Communicate,
@@ -14,6 +16,22 @@ impl<'a> Teller<'a> {
             Err(_) => {
                 self.communicate.say_line("Customer name may not be empty.");
                 self.get_customer()
+            }
+        }
+    }
+
+    fn get_amount(&self) -> Amount {
+        self.communicate.say("Enter amount: ");
+
+        let res = f64::from_str(&self.communicate.get_line())
+            .map_err(|_| "Invalid number.")
+            .and_then(|a| Amount::new(a).map_err(|_| "Number cannot be negative."));
+
+        match res {
+            Ok(amount) => amount,
+            Err(msg) => {
+                self.communicate.say_line(msg);
+                self.get_amount()
             }
         }
     }
