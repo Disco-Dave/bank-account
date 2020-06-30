@@ -1,9 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct Customer(String);
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum Error {
     IsEmpty,
 }

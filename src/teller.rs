@@ -1,10 +1,13 @@
+use super::account::{Account, RatedAccount};
 use super::amount::Amount;
 use super::communicate::Communicate;
+use super::computer::Computer;
 use super::customer::Customer;
 use std::str::FromStr;
 
 pub struct Teller<'a> {
     pub communicate: &'a dyn Communicate,
+    pub computer: &'a dyn Computer,
 }
 
 impl<'a> Teller<'a> {
@@ -23,7 +26,7 @@ impl<'a> Teller<'a> {
     fn get_amount(&self) -> Amount {
         self.communicate.say("Enter amount: ");
 
-        let res = f64::from_str(&self.communicate.get_line())
+        let res = f64::from_str(&self.communicate.get_line().trim())
             .map_err(|_| "Invalid number.")
             .and_then(|a| Amount::new(a).map_err(|_| "Number cannot be negative."));
 
@@ -35,12 +38,56 @@ impl<'a> Teller<'a> {
             }
         }
     }
+
+    fn summarize_account(&self, account: &RatedAccount) {
+        let account: &Account = account.into();
+        let message = format!("Current balance is: {}", account.balance);
+        self.communicate.say_line(&message);
+    }
+
+    fn prompt(&self) {
+        let message = format!("(d)eposit, (w)ithdraw, or (q)uit: ");
+        self.communicate.say(&message);
+    }
+
+    pub fn interact(&self) {
+        let customer = self.get_customer();
+        let mut account = self.computer.get_account(customer);
+
+        let mut did_quit = false;
+
+        while !did_quit {
+            self.summarize_account(&account);
+            self.prompt();
+
+            match self.communicate.get_char() {
+                Some('q') => did_quit = true,
+                Some('d') => {
+                    let amount = self.get_amount();
+                    account = self.computer.deposit(amount, account);
+                }
+                Some('w') => match account {
+                    RatedAccount::Overdrawn(_) => {
+                        self.communicate.say_line("Account is already overdrawn.")
+                    }
+                    RatedAccount::InCredit(credit_account) => {
+                        let amount = self.get_amount();
+                        account = self.computer.withdraw(amount, credit_account);
+                    }
+                },
+                _ => self.communicate.say_line("Invalid command."),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::account::{CreditAccount, RatedAccount};
+    use crate::amount::Amount;
     use crate::communicate::Communicate;
+    use crate::customer::Customer;
     use std::cell::RefCell;
 
     struct MockCommunicate {
@@ -83,11 +130,29 @@ mod tests {
         }
     }
 
+    struct MockComputer();
+
+    impl Computer for MockComputer {
+        fn get_account(&self, customer: Customer) -> RatedAccount {
+            RatedAccount::new(customer)
+        }
+
+        fn deposit(&self, amount: Amount, account: RatedAccount) -> RatedAccount {
+            account.deposit(amount)
+        }
+
+        fn withdraw(&self, amount: Amount, account: CreditAccount) -> RatedAccount {
+            account.withdraw(amount)
+        }
+    }
+
     #[test]
     fn can_get_customer_name() {
         let mock_communicate = MockCommunicate::new(vec!["Mochi".to_owned()]);
+        let mock_computer = MockComputer();
         let teller = Teller {
             communicate: &mock_communicate,
+            computer: &mock_computer,
         };
 
         let expected_customer = Customer::new("Mochi".to_owned()).unwrap();
@@ -107,8 +172,10 @@ mod tests {
             "".to_owned(),
             "  ".to_owned(),
         ]);
+        let mock_computer = MockComputer();
         let teller = Teller {
             communicate: &mock_communicate,
+            computer: &mock_computer,
         };
 
         let expected_customer = Customer::new("Mochi".to_owned()).unwrap();
@@ -129,8 +196,10 @@ mod tests {
     #[test]
     fn can_get_amount() {
         let mock_communicate = MockCommunicate::new(vec!["123.12".to_owned()]);
+        let mock_computer = MockComputer();
         let teller = Teller {
             communicate: &mock_communicate,
+            computer: &mock_computer,
         };
         let expected_amount = Amount::new(123.12).unwrap();
         let actual_amount = teller.get_amount();
@@ -141,8 +210,10 @@ mod tests {
     fn retries_amount_until_a_vali_one_is_given() {
         let mock_communicate =
             MockCommunicate::new(vec!["22.33".to_owned(), "-10".to_owned(), "xyz".to_owned()]);
+        let mock_computer = MockComputer();
         let teller = Teller {
             communicate: &mock_communicate,
+            computer: &mock_computer,
         };
         let expected_amount = Amount::new(22.33).unwrap();
         let actual_amount = teller.get_amount();

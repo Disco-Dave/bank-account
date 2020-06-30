@@ -3,19 +3,29 @@ use super::customer::Customer;
 use std::convert::From;
 use std::ops::{Add, Sub};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Account {
-    customer: Customer,
-    balance: f64,
+    pub customer: Customer,
+    pub balance: f64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CreditAccount(Account);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum RatedAccount {
     Overdrawn(Account),
     InCredit(CreditAccount),
+}
+
+impl<'a> From<&'a RatedAccount> for &'a Account {
+    fn from(rated_account: &'a RatedAccount) -> Self {
+        use RatedAccount::*;
+
+        match rated_account {
+            Overdrawn(account) | InCredit(CreditAccount(account)) => account,
+        }
+    }
 }
 
 impl From<RatedAccount> for Account {
