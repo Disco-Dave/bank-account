@@ -125,4 +125,37 @@ mod tests {
             mock_communicate.get_output()
         );
     }
+
+    #[test]
+    fn can_get_amount() {
+        let mock_communicate = MockCommunicate::new(vec!["123.12".to_owned()]);
+        let teller = Teller {
+            communicate: &mock_communicate,
+        };
+        let expected_amount = Amount::new(123.12).unwrap();
+        let actual_amount = teller.get_amount();
+        assert_eq!(expected_amount, actual_amount);
+    }
+
+    #[test]
+    fn retries_amount_until_a_vali_one_is_given() {
+        let mock_communicate =
+            MockCommunicate::new(vec!["22.33".to_owned(), "-10".to_owned(), "xyz".to_owned()]);
+        let teller = Teller {
+            communicate: &mock_communicate,
+        };
+        let expected_amount = Amount::new(22.33).unwrap();
+        let actual_amount = teller.get_amount();
+        assert_eq!(expected_amount, actual_amount);
+        assert_eq!(
+            vec![
+                "Enter amount: ".to_owned(),
+                "Invalid number.\n".to_owned(),
+                "Enter amount: ".to_owned(),
+                "Number cannot be negative.\n".to_owned(),
+                "Enter amount: ".to_owned()
+            ],
+            mock_communicate.get_output()
+        );
+    }
 }
